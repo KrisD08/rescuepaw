@@ -7,7 +7,10 @@ load_dotenv()
 
 # URL del nodo RPC de zkSYS Testnet
 # Obtén la URL actualizada en: https://docs.syscoin.org
-ZKSYS_TESTNET_RPC = "https://rpc.zkSYS.testnet.syscoin.org"  
+ZKSYS_TESTNET_RPC = "https://rpc-zk.tanenbaum.io/"  
+CHAIN_ID = 57057
+TOKEN_SYMBOL = "TSYS"
+EXPLORER_URL = "https://explorer-zk.tanenbaum.io"
 
 def conectar():
     """Conecta con zkSYS Testnet."""
@@ -60,7 +63,7 @@ def registrar_evento_en_blockchain(dog_id, user_id, tipo_evento, descripcion):
             "gas": 21000 + len(datos_hex),
             "gasPrice": w3.eth.gas_price,
             "data": "0x" + datos_hex,
-            "chainId": w3.eth.chain_id
+            "chainId": 57057
         }
         
         # Firmar y enviar
