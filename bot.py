@@ -245,7 +245,7 @@ async def on_message(ctx):
     }
     
     payload = {
-        "model": "mistralai/mistral-7b-instruct:free",
+        "model": "openrouter/free",
         "messages": [
             {
                 "role": "system",
