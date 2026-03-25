@@ -274,10 +274,15 @@ async def on_message(ctx):
                 json=payload,
                 timeout=15
             )
-            respuesta = response.json()["choices"][0]["message"]["content"]
+            print(f"[DEBUG] Status: {response.status_code}")
+            print(f"[DEBUG] Respuesta: {response.text}")
+            
+            data = response.json()
+            respuesta = data["choices"][0]["message"]["content"]
             await ctx.channel.send(respuesta)
     except Exception as e:
         print(f"[ERROR chat] {e}")
+        await ctx.channel.send("⚠️ Error interno del agente. Intenta de nuevo.")
 
 # ────────────────────────────────────────────────────────────────
 # INICIAR EL BOT
