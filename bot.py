@@ -245,7 +245,7 @@ async def on_message(ctx):
     }
     
     payload = {
-        "model": "meta-llama/llama-3.1-8b-instruct:free",
+        "model": "openrouter/auto",
         "messages": [
             {
                 "role": "system",
