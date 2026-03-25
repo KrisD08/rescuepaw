@@ -225,6 +225,61 @@ async def cmd_ayuda(ctx):
     await ctx.send(embed=embed)
 
 # ────────────────────────────────────────────────────────────────
+# CHAT EN LENGUAJE NATURAL (Chatbot AI Proxy)
+# ────────────────────────────────────────────────────────────────
+@bot.event
+async def on_message(ctx):
+    await bot.process_commands(ctx)
+    
+    if ctx.author == bot.user:
+        return
+    
+    if ctx.content.startswith("/"):
+        return
+
+    api_key = os.getenv("OPENROUTER_API_KEY")
+    
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json"
+    }
+    
+    payload = {
+        "model": "google/gemini-2.0-flash-lite-preview-02-05:free",
+        "messages": [
+            {
+                "role": "system",
+                "content": (
+                    "Eres el agente autónomo de RescuePaw Labs. "
+                    "Ayudas a conectar estudiantes universitarios con perros callejeros en Lima, Perú. "
+                    "Respondes en español, de forma amigable y breve. "
+                    "Sabes sobre: registro de perros, sistema de donaciones con blockchain zkSYS, "
+                    "comandos disponibles: /registrar, /registrar_perro, /alimentar, /estado, /perros, /mi_perfil. "
+                    "Si te preguntan cómo ayudar, explica el sistema brevemente y sugiere usar /ayuda."
+                )
+            },
+            {
+                "role": "user",
+                "content": ctx.content
+            }
+        ]
+    }
+    
+    try:
+        async with ctx.channel.typing():
+            import requests as req
+            response = req.post(
+                "https://openrouter.ai/api/v1/chat/completions",
+                headers=headers,
+                json=payload,
+                timeout=15
+            )
+            respuesta = response.json()["choices"][0]["message"]["content"]
+            await ctx.channel.send(respuesta)
+    except Exception as e:
+        print(f"[ERROR chat] {e}")
+
+# ────────────────────────────────────────────────────────────────
 # INICIAR EL BOT
 # ────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
