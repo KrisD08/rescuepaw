@@ -1,4 +1,3 @@
-# bot.py
 import discord
 from discord.ext import commands
 import os
@@ -7,17 +6,14 @@ from agente import AgenteRescuePaw
 
 load_dotenv()
 
-# ── CONFIGURACIÓN DEL BOT ─────────────────────────────────────────
 intents = discord.Intents.default()
 intents.message_content = True
 bot = commands.Bot(command_prefix="/", intents=intents)
 agente = AgenteRescuePaw()
-# ──────────────────────────────────────────────────────────────────
 
 @bot.event
 async def on_ready():
     print(f"🐾 RescuePaw Bot conectado como {bot.user}")
-    print(f"🤖 Agente autónomo activo en zkSYS Testnet")
     await bot.change_presence(
         activity=discord.Activity(
             type=discord.ActivityType.watching,
@@ -25,271 +21,249 @@ async def on_ready():
         )
     )
 
-# ────────────────────────────────────────────────────────────────
-# COMANDO: /registrar
-# Un estudiante se registra como padrino
-# ────────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────
+# REGISTRAR PADRINO
+# ─────────────────────────────────────────────
 @bot.command(name="registrar")
 async def cmd_registrar(ctx):
-    """Regístrate como padrino de RescuePaw."""
     resultado = agente.registrar_nuevo_padrino(
         user_id=ctx.author.id,
         nombre=ctx.author.display_name
     )
-    
+
     embed = discord.Embed(
-        title="🐾 RescuePaw — Registro de Padrino",
+        title="🐾 Registro de Padrino",
         description=resultado["mensaje"],
         color=0x8B4513 if resultado["exito"] else 0xFF0000
     )
     await ctx.send(embed=embed)
 
-# ────────────────────────────────────────────────────────────────
-# COMANDO: /registrar_perro <nombre> <ubicacion>
-# Registra un perro (adjunta foto)
-# ────────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────
+# REGISTRAR PERRO (AUTOMÁTICO)
+# ─────────────────────────────────────────────
 @bot.command(name="registrar_perro")
 async def cmd_registrar_perro(ctx, nombre: str, *, ubicacion: str):
-    """
-    Registra un perro callejero.
-    Uso: /registrar_perro Manchita Los Olivos
-    Adjunta una foto del perro al mensaje.
-    """
-    # Verificar si hay foto adjunta
-    foto_url = None
-    if ctx.message.attachments:
-        foto_url = ctx.message.attachments[0].url
-    
-    if not foto_url:
-        await ctx.send("❌ Por favor adjunta una foto del perro al mensaje.")
-        return
-    
-    msg_espera = await ctx.send("🤖 El agente está analizando la foto...")
-    
+
+    msg_espera = await ctx.send("🤖 Buscando un perro para ti...")
+
     resultado = agente.registrar_nuevo_perro(
         nombre=nombre,
         ubicacion=ubicacion,
-        foto_url=foto_url,
         registrado_por=ctx.author.id
     )
-    
+
     await msg_espera.delete()
-    
+
     embed = discord.Embed(
-        title="🐕 RescuePaw — Registro de Perro",
+        title="🐕 Nuevo Perro Registrado",
         description=resultado["mensaje"],
         color=0x8B4513 if resultado["exito"] else 0xFF0000
     )
-    if foto_url and resultado["exito"]:
-        embed.set_thumbnail(url=foto_url)
-    
+
+    if resultado["exito"]:
+        embed.set_image(url=resultado["foto_url"])
+
     await ctx.send(embed=embed)
 
-# ────────────────────────────────────────────────────────────────
-# COMANDO: /alimentar <dog_id>
-# Un padrino reporta que alimentó a un perro
-# ────────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────
+# ALIMENTAR
+# ─────────────────────────────────────────────
 @bot.command(name="alimentar")
 async def cmd_alimentar(ctx, dog_id: str):
-    """
-    Reporta que alimentaste a un perro.
-    Uso: /alimentar dog_001
-    Adjunta una foto del momento (opcional pero recomendado).
-    """
+
     foto_url = None
     if ctx.message.attachments:
         foto_url = ctx.message.attachments[0].url
-    
-    msg_espera = await ctx.send("🤖 El agente está verificando el compliance...")
-    
+
+    msg_espera = await ctx.send("🤖 Verificando...")
+
     resultado = agente.procesar_alimentacion(
         dog_id=dog_id.lower(),
         user_id=ctx.author.id,
         foto_url=foto_url
     )
-    
+
     await msg_espera.delete()
-    
-    color = 0x228B22 if resultado["exito"] else 0xFF0000
+
     embed = discord.Embed(
-        title="🍖 RescuePaw — Registro de Comida",
+        title="🍖 Registro de Comida",
         description=resultado["mensaje"],
-        color=color
+        color=0x228B22 if resultado["exito"] else 0xFF0000
     )
-    embed.set_footer(text="Agente autónomo RescuePaw | zkSYS Testnet")
-    
+
     await ctx.send(embed=embed)
 
-# ────────────────────────────────────────────────────────────────
-# COMANDO: /estado <dog_id>
-# Ver el estado de un perro
-# ────────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────
+# OTROS COMANDOS (IGUAL)
+# ─────────────────────────────────────────────
 @bot.command(name="estado")
 async def cmd_estado(ctx, dog_id: str):
-    """
-    Ver el estado de un perro.
-    Uso: /estado dog_001
-    """
     mensaje = agente.ver_estado_perro(dog_id.lower())
-    
-    embed = discord.Embed(
-        title="📊 RescuePaw — Estado del Perro",
-        description=mensaje,
-        color=0x8B4513
-    )
-    await ctx.send(embed=embed)
+    await ctx.send(mensaje)
 
-# ────────────────────────────────────────────────────────────────
-# COMANDO: /perros
-# Ver todos los perros registrados
-# ────────────────────────────────────────────────────────────────
 @bot.command(name="perros")
 async def cmd_perros(ctx):
-    """Lista todos los perros registrados."""
     mensaje = agente.ver_todos_perros()
-    
-    embed = discord.Embed(
-        title="🐕 RescuePaw — Perros Registrados",
-        description=mensaje,
-        color=0x8B4513
-    )
-    embed.set_footer(text="Usa /alimentar <dog_id> para ayudar")
-    await ctx.send(embed=embed)
+    await ctx.send(mensaje)
 
-# ────────────────────────────────────────────────────────────────
-# COMANDO: /mi_perfil
-# Ver tu saldo y estadísticas como padrino
-# ────────────────────────────────────────────────────────────────
 @bot.command(name="mi_perfil")
 async def cmd_mi_perfil(ctx):
-    """Ver tu perfil como padrino."""
     from base_datos import obtener_padrino
     padrino = obtener_padrino(ctx.author.id)
-    
+
     if not padrino:
-        await ctx.send("❌ No estás registrado. Usa `/registrar` primero.")
+        await ctx.send("❌ Usa `/registrar` primero.")
         return
-    
-    embed = discord.Embed(
-        title=f"👤 Perfil de {padrino['nombre']}",
-        color=0x8B4513
-    )
-    embed.add_field(name="💰 Saldo SYS (testnet)", value=f"{padrino['saldo_sys']} SYS", inline=True)
-    embed.add_field(name="🍖 Comidas aportadas", value=str(padrino["comidas_aportadas"]), inline=True)
-    embed.set_footer(text="RescuePaw Labs | zkSYS Testnet")
-    
-    await ctx.send(embed=embed)
 
-# ────────────────────────────────────────────────────────────────
-# COMANDO: /ayuda
-# ────────────────────────────────────────────────────────────────
-@bot.command(name="ayuda")
-async def cmd_ayuda(ctx):
-    """Muestra todos los comandos disponibles."""
-    embed = discord.Embed(
-        title="🐾 RescuePaw Labs — Comandos",
-        description="Agente autónomo para ayudar perros callejeros en Lima",
-        color=0x8B4513
+    await ctx.send(
+        f"👤 {padrino['nombre']}\n"
+        f"💰 {padrino['saldo_sys']} SYS\n"
+        f"🍖 {padrino['comidas_aportadas']} comidas"
     )
-    embed.add_field(
-        name="👤 `/registrar`",
-        value="Regístrate como padrino y recibe 10 SYS de prueba",
-        inline=False
-    )
-    embed.add_field(
-        name="🐕 `/registrar_perro <nombre> <ubicacion>`",
-        value="Registra un perro callejero (adjunta foto)",
-        inline=False
-    )
-    embed.add_field(
-        name="🍖 `/alimentar <dog_id>`",
-        value="Reporta que alimentaste a un perro (adjunta foto)",
-        inline=False
-    )
-    embed.add_field(
-        name="📊 `/estado <dog_id>`",
-        value="Ver el estado y fondos acumulados de un perro",
-        inline=False
-    )
-    embed.add_field(
-        name="📋 `/perros`",
-        value="Ver todos los perros registrados",
-        inline=False
-    )
-    embed.add_field(
-        name="👤 `/mi_perfil`",
-        value="Ver tu saldo y comidas aportadas",
-        inline=False
-    )
-    embed.set_footer(text="🔗 Todos los eventos se registran en zkSYS Testnet")
-    await ctx.send(embed=embed)
-
-# ────────────────────────────────────────────────────────────────
-# CHAT EN LENGUAJE NATURAL (Chatbot AI Proxy)
-# ────────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────
 @bot.event
-async def on_message(ctx):
-    await bot.process_commands(ctx)
-    
-    if ctx.author == bot.user:
-        return
-    
-    if ctx.content.startswith("/"):
+async def on_message(message):
+    if message.author.bot:
         return
 
-    api_key = os.getenv("OPENROUTER_API_KEY")
-    
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json"
-    }
-    
-    payload = {
-        "model": "openrouter/free",
-        "messages": [
-            {
-                "role": "system",
-                "content": (
-                    "Eres el agente autónomo de RescuePaw Labs. "
-                    "Ayudas a conectar estudiantes universitarios con perros callejeros en Lima, Perú. "
-                    "Respondes en español, de forma amigable y breve. "
-                    "Sabes sobre: registro de perros, sistema de donaciones con blockchain zkSYS, "
-                    "comandos disponibles: /registrar, /registrar_perro, /alimentar, /estado, /perros, /mi_perfil. "
-                    "Si te preguntan cómo ayudar, explica el sistema brevemente y sugiere usar /ayuda."
-                )
-            },
-            {
-                "role": "user",
-                "content": ctx.content
-            }
-        ]
-    }
-    
-    try:
-        async with ctx.channel.typing():
-            import requests as req
-            response = req.post(
-                "https://openrouter.ai/api/v1/chat/completions",
-                headers=headers,
-                json=payload,
-                timeout=15
-            )
-            print(f"[DEBUG] Status: {response.status_code}")
-            print(f"[DEBUG] Respuesta: {response.text}")
-            
-            data = response.json()
-            respuesta = data["choices"][0]["message"]["content"]
-            await ctx.channel.send(respuesta)
-    except Exception as e:
-        print(f"[ERROR chat] {e}")
-        await ctx.channel.send("⚠️ Error interno del agente. Intenta de nuevo.")
+    # Mantener comandos normales
+    await bot.process_commands(message)
 
-# ────────────────────────────────────────────────────────────────
-# INICIAR EL BOT
-# ────────────────────────────────────────────────────────────────
-if __name__ == "__main__":
-    token = os.getenv("DISCORD_TOKEN")
-    if not token:
-        print("❌ ERROR: Falta el DISCORD_TOKEN en el archivo .env")
+    # 👉 Detectar si mencionan al bot
+    if bot.user not in message.mentions:
+        return
+
+    # Limpiar mención
+    contenido = message.content.replace(f"<@{bot.user.id}>", "")
+    contenido = contenido.replace(f"<@!{bot.user.id}>", "")
+    contenido = contenido.strip()
+
+    if not contenido:
+        await message.channel.send("🐾 Usa: @RescuePaw ayuda")
+        return
+
+    partes = contenido.split()
+    comando = partes[0].lower()
+
+    # ───────────────
+    # REGISTRAR
+    # ───────────────
+    if comando == "registrar":
+        resultado = agente.registrar_nuevo_padrino(
+            user_id=message.author.id,
+            nombre=message.author.display_name
+        )
+        await message.channel.send(resultado["mensaje"])
+
+    # ───────────────
+    # REGISTRAR PERRO
+    # ───────────────
+    elif comando == "registrar_perro":
+
+        if len(partes) < 3:
+            await message.channel.send("❌ Uso: @RescuePaw registrar_perro <nombre> <ubicacion>")
+            return
+
+        nombre = partes[1]
+        ubicacion = " ".join(partes[2:])
+
+        msg = await message.channel.send("🤖 Buscando perro...")
+
+        resultado = agente.registrar_nuevo_perro(
+            nombre=nombre,
+            ubicacion=ubicacion,
+            registrado_por=message.author.id
+        )
+
+        await msg.delete()
+
+        embed = discord.Embed(
+            title="🐕 Nuevo Perro",
+            description=resultado["mensaje"],
+            color=0x8B4513
+        )
+
+        if resultado["exito"]:
+            embed.set_image(url=resultado["foto_url"])
+
+        await message.channel.send(embed=embed)
+
+    # ───────────────
+    # ALIMENTAR
+    # ───────────────
+    elif comando == "alimentar":
+
+        if len(partes) < 2:
+            await message.channel.send("❌ Uso: @RescuePaw alimentar <dog_id>")
+            return
+
+        dog_id = partes[1]
+
+        foto_url = None
+        if message.attachments:
+            foto_url = message.attachments[0].url
+
+        resultado = agente.procesar_alimentacion(
+            dog_id=dog_id,
+            user_id=message.author.id,
+            foto_url=foto_url
+        )
+
+        await message.channel.send(resultado["mensaje"])
+
+    # ───────────────
+    # PERROS
+    # ───────────────
+    elif comando == "perros":
+        await message.channel.send(agente.ver_todos_perros())
+
+    # ───────────────
+    # ESTADO
+    # ───────────────
+    elif comando == "estado":
+
+        if len(partes) < 2:
+            await message.channel.send("❌ Uso: @RescuePaw estado <dog_id>")
+            return
+
+        await message.channel.send(
+            agente.ver_estado_perro(partes[1])
+        )
+
+    # ───────────────
+    # PERFIL
+    # ───────────────
+    elif comando == "mi_perfil":
+        from base_datos import obtener_padrino
+
+        padrino = obtener_padrino(message.author.id)
+
+        if not padrino:
+            await message.channel.send("❌ No estás registrado")
+            return
+
+        await message.channel.send(
+            f"👤 {padrino['nombre']}\n"
+            f"💰 {padrino['saldo_sys']} SYS\n"
+            f"🍖 {padrino['comidas_aportadas']}"
+        )
+
+    # ───────────────
+    # AYUDA
+    # ───────────────
+    elif comando == "ayuda":
+        await message.channel.send(
+            "🐾 Comandos:\n"
+            "@RescuePaw registrar\n"
+            "@RescuePaw registrar_perro nombre ubicacion\n"
+            "@RescuePaw alimentar dog_id\n"
+            "@RescuePaw perros\n"
+            "@RescuePaw estado dog_id\n"
+            "@RescuePaw mi_perfil"
+        )
+
     else:
-        bot.run(token)
+        await message.channel.send("❓ Comando no reconocido")
+# ─────────────────────────────────────────────
+if __name__ == "__main__":
+    bot.run(os.getenv("DISCORD_TOKEN"))
