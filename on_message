@@ -1,0 +1,63 @@
+@bot.event
+async def on_message(message):
+    if message.author == bot.user:
+        return
+
+    # Procesa comandos normalmente
+    await bot.process_commands(message)
+
+    # Detecta si el bot fue mencionado y no es un comando
+    if bot.user in message.mentions:
+        # Extraemos solo el texto sin la mención
+        texto = message.content.replace(f"<@!{bot.user.id}>", "").strip()
+
+        # Si el mensaje es vacío o es un comando, no hacemos nada más
+        if not texto or texto.split()[0].lower() in [cmd.name for cmd in bot.commands]:
+            return
+
+        # Si tenemos texto libre, respondemos con IA proxy
+        api_key = os.getenv("OPENROUTER_API_KEY")
+        if not api_key:
+            await message.channel.send("⚠️ No tengo la API key configurada para responder consultas.")
+            return
+
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json"
+        }
+
+        payload = {
+            "model": "openrouter/free",
+            "messages": [
+                {
+                    "role": "system",
+                    "content": (
+                        "Eres el agente autónomo de RescuePaw Labs. "
+                        "Ayudas a conectar estudiantes universitarios con perros callejeros en Lima, Perú. "
+                        "Respondes en español, de forma amigable y breve. "
+                        "Sabes sobre: registro de perros, sistema de donaciones con blockchain zkSYS, "
+                        "comandos disponibles: registrar, registrar_perro, alimentar, estado, perros, mi_perfil, ayuda. "
+                        "Si te preguntan cómo ayudar, explica el sistema brevemente y sugiere usar ayuda."
+                    )
+                },
+                {
+                    "role": "user",
+                    "content": texto
+                }
+            ]
+        }
+
+        try:
+            async with message.channel.typing():
+                response = requests.post(
+                    "https://openrouter.ai/api/v1/chat/completions",
+                    headers=headers,
+                    json=payload,
+                    timeout=15
+                )
+                data = response.json()
+                respuesta = data["choices"][0]["message"]["content"]
+                await message.channel.send(respuesta)
+        except Exception as e:
+            print(f"[ERROR chat] {e}")
+            await message.channel.send("⚠️ Error interno del agente. Intenta de nuevo.")

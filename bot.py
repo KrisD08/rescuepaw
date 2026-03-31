@@ -11,7 +11,9 @@ load_dotenv()
 
 intents = discord.Intents.default()
 intents.message_content = True
-bot = commands.Bot(command_prefix=None, intents=intents)  # Sin prefijo, solo mención
+
+# command_prefix=None para que solo funcione con mención
+bot = commands.Bot(command_prefix=None, intents=intents)
 
 agente = AgenteRescuePaw()
 
@@ -27,7 +29,6 @@ async def on_ready():
     )
 
 async def buscar_imagen_perro(nombre):
-    # Busca una imagen en DuckDuckGo (búsqueda básica)
     url = f"https://duckduckgo.com/?q={nombre}+perro&iax=images&ia=images"
     async with aiohttp.ClientSession() as session:
         async with session.get(url) as resp:
@@ -157,30 +158,36 @@ async def cmd_ayuda(ctx):
     embed.set_footer(text="🔗 Todos los eventos se registran en zkSYS Testnet")
     await ctx.send(embed=embed)
 
-# ------------------- EVENTO para texto libre con mención ------------------
+# -------- EVENTO ON_MESSAGE para comandos y texto libre ---------
 
 @bot.event
 async def on_message(message):
     if message.author == bot.user:
         return
 
+    # Procesa comandos normalmente
     await bot.process_commands(message)
 
+    # Detecta si el bot fue mencionado y no es un comando
     if bot.user in message.mentions:
+        # Extraemos solo el texto sin la mención
         texto = message.content.replace(f"<@!{bot.user.id}>", "").strip()
-        if not texto:
+
+        # Si el mensaje es vacío o es un comando, no hacemos nada más
+        if not texto or texto.split()[0].lower() in [cmd.name for cmd in bot.commands]:
             return
-        
+
+        # Si tenemos texto libre, respondemos con IA proxy
         api_key = os.getenv("OPENROUTER_API_KEY")
         if not api_key:
             await message.channel.send("⚠️ No tengo la API key configurada para responder consultas.")
             return
-        
+
         headers = {
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json"
         }
-        
+
         payload = {
             "model": "openrouter/free",
             "messages": [
