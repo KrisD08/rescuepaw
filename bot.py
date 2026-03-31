@@ -12,11 +12,21 @@ load_dotenv()
 intents = discord.Intents.default()
 intents.message_content = True
 
-# command_prefix=None para que solo funcione con mención
-bot = commands.Bot(command_prefix=None, intents=intents)
-
 agente = AgenteRescuePaw()
 
+# ------------------ PREFIX SOLO CON MENCIÓN ------------------
+async def get_prefix(bot, message):
+    # Prefijo solo si el mensaje empieza con la mención del bot
+    prefixes = [f"<@!{bot.user.id}> ", f"<@{bot.user.id}> "]
+    for prefix in prefixes:
+        if message.content.startswith(prefix):
+            return prefix
+    # No se reconoce comando si no empieza con mención
+    return ""  
+
+bot = commands.Bot(command_prefix=get_prefix, intents=intents)
+
+# ------------------ EVENTO READY ------------------
 @bot.event
 async def on_ready():
     print(f"🐾 RescuePaw Bot conectado como {bot.user}")
@@ -28,6 +38,7 @@ async def on_ready():
         )
     )
 
+# ------------------ FUNCIONES AUXILIARES ------------------
 async def buscar_imagen_perro(nombre):
     url = f"https://duckduckgo.com/?q={nombre}+perro&iax=images&ia=images"
     async with aiohttp.ClientSession() as session:
@@ -39,7 +50,6 @@ async def buscar_imagen_perro(nombre):
     return None
 
 # ------------------ COMANDOS --------------------
-
 @bot.command(name="registrar")
 async def cmd_registrar(ctx):
     resultado = agente.registrar_nuevo_padrino(
@@ -158,36 +168,31 @@ async def cmd_ayuda(ctx):
     embed.set_footer(text="🔗 Todos los eventos se registran en zkSYS Testnet")
     await ctx.send(embed=embed)
 
-# -------- EVENTO ON_MESSAGE para comandos y texto libre ---------
-
+# ------------------- EVENTO on_message para texto libre ------------------
 @bot.event
 async def on_message(message):
     if message.author == bot.user:
         return
 
-    # Procesa comandos normalmente
+    # Procesa comandos si empiezan con la mención
     await bot.process_commands(message)
 
-    # Detecta si el bot fue mencionado y no es un comando
+    # Texto libre con mención del bot
     if bot.user in message.mentions:
-        # Extraemos solo el texto sin la mención
-        texto = message.content.replace(f"<@!{bot.user.id}>", "").strip()
-
-        # Si el mensaje es vacío o es un comando, no hacemos nada más
-        if not texto or texto.split()[0].lower() in [cmd.name for cmd in bot.commands]:
+        texto = message.content.replace(f"<@!{bot.user.id}>", "").replace(f"<@{bot.user.id}>", "").strip()
+        if not texto:
             return
-
-        # Si tenemos texto libre, respondemos con IA proxy
+        
         api_key = os.getenv("OPENROUTER_API_KEY")
         if not api_key:
             await message.channel.send("⚠️ No tengo la API key configurada para responder consultas.")
             return
-
+        
         headers = {
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json"
         }
-
+        
         payload = {
             "model": "openrouter/free",
             "messages": [
@@ -224,6 +229,7 @@ async def on_message(message):
             print(f"[ERROR chat] {e}")
             await message.channel.send("⚠️ Error interno del agente. Intenta de nuevo.")
 
+# ------------------- INICIO DEL BOT ------------------
 if __name__ == "__main__":
     token = os.getenv("DISCORD_TOKEN")
     if not token:
